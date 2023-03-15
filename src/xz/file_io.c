@@ -100,26 +100,6 @@ io_init(void)
 	// print an error message, but our stderr could be screwed anyway.
 	tuklib_open_stdxxx(E_ERROR);
 
-#ifndef TUKLIB_DOSLIKE
-	// If fchown() fails setting the owner, we warn about it only if
-	// we are root.
-	warn_fchown = geteuid() == 0;
-
-	// Create a pipe for the self-pipe trick.
-	if (pipe(user_abort_pipe))
-		message_fatal(_("Error creating a pipe: %s"),
-				strerror(errno));
-
-	// Make both ends of the pipe non-blocking.
-	for (unsigned i = 0; i < 2; ++i) {
-		int flags = fcntl(user_abort_pipe[i], F_GETFL);
-		if (flags == -1 || fcntl(user_abort_pipe[i], F_SETFL,
-				flags | O_NONBLOCK) == -1)
-			message_fatal(_("Error creating a pipe: %s"),
-					strerror(errno));
-	}
-#endif
-
 #ifdef __DJGPP__
 	// Avoid doing useless things when statting files.
 	// This isn't important but doesn't hurt.
@@ -369,45 +349,8 @@ io_copy_attrs(const file_pair *pair)
 	// destination file who didn't have permission to access the
 	// source file.
 
-	// Try changing the owner of the file. If we aren't root or the owner
-	// isn't already us, fchown() probably doesn't succeed. We warn
-	// about failing fchown() only if we are root.
-	if (fchown(pair->dest_fd, pair->src_st.st_uid, (gid_t)(-1))
-			&& warn_fchown)
-		message_warning(_("%s: Cannot set the file owner: %s"),
-				pair->dest_name, strerror(errno));
+	mode_t mode = pair->src_st.st_mode & 0777;
 
-	mode_t mode;
-
-	// With BSD semantics the new dest file may have a group that
-	// does not belong to the user. If the src file has the same gid
-	// nothing has to be done. Nevertheless OpenBSD fchown(2) fails
-	// in this case which seems to be POSIX compliant. As there is
-	// nothing to do, skip the system call.
-	if (pair->dest_st.st_gid != pair->src_st.st_gid
-			&& fchown(pair->dest_fd, (uid_t)(-1),
-				pair->src_st.st_gid)) {
-		message_warning(_("%s: Cannot set the file group: %s"),
-				pair->dest_name, strerror(errno));
-		// We can still safely copy some additional permissions:
-		// `group' must be at least as strict as `other' and
-		// also vice versa.
-		//
-		// NOTE: After this, the owner of the source file may
-		// get additional permissions. This shouldn't be too bad,
-		// because the owner would have had permission to chmod
-		// the original file anyway.
-		mode = ((pair->src_st.st_mode & 0070) >> 3)
-				& (pair->src_st.st_mode & 0007);
-		mode = (pair->src_st.st_mode & 0700) | (mode << 3) | mode;
-	} else {
-		// Drop the setuid, setgid, and sticky bits.
-		mode = pair->src_st.st_mode & 0777;
-	}
-
-	if (fchmod(pair->dest_fd, mode))
-		message_warning(_("%s: Cannot set the file permissions: %s"),
-				pair->dest_name, strerror(errno));
 #endif
 
 	// Copy the timestamps. We have several possible ways to do this, of

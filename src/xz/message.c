@@ -73,7 +73,7 @@ static uint64_t expected_in_size;
 //    or stderr is not a terminal.
 //  - alarm() + SIGALRM seems to have slightly less overhead than polling
 //    gettimeofday().
-#ifdef SIGALRM
+#if defined(SIGALRM) && !defined(__wasi__)
 
 const int message_progress_sigs[] = {
 	SIGALRM,
@@ -140,7 +140,7 @@ message_init(void)
 	}
 */
 
-#ifdef SIGALRM
+#if defined(SIGALRM) && !defined(__wasi__)
 	// Establish the signal handlers which set a flag to tell us that
 	// progress info should be updated.
 	struct sigaction sa;
@@ -271,7 +271,7 @@ message_progress_start(lzma_stream *strm, bool is_passthru, uint64_t in_size)
 		// first message almost immediately, but delaying by one
 		// second looks better to me, since extremely early
 		// progress info is pretty much useless.
-#ifdef SIGALRM
+#if defined(SIGALRM) && !defined(__wasi__)
 		// First disable a possibly existing alarm.
 		alarm(0);
 		progress_needs_updating = false;
@@ -547,7 +547,7 @@ message_progress_update(void)
 	// Calculate how long we have been processing this file.
 	const uint64_t elapsed = mytime_get_elapsed();
 
-#ifndef SIGALRM
+#if defined(SIGALRM) && !defined(__wasi__)
 	if (progress_next_update > elapsed)
 		return;
 
@@ -584,7 +584,7 @@ message_progress_update(void)
 			cols[3],
 			cols[4]);
 
-#ifdef SIGALRM
+#if defined(SIGALRM) && !defined(__wasi__)
 	// Updating the progress info was finished. Reset
 	// progress_needs_updating to wait for the next SIGALRM.
 	//

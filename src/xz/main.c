@@ -207,18 +207,6 @@ main(int argc, char **argv)
 		}
 	}
 
-	// Set up the signal handlers. We don't need these before we
-	// start the actual action and not in --list mode, so this is
-	// done after parsing the command line arguments.
-	//
-	// It's good to keep signal handlers in normal compression and
-	// decompression modes even when only writing to stdout, because
-	// we might need to restore O_APPEND flag on stdout before exiting.
-	// In --test mode, signal handlers aren't really needed, but let's
-	// keep them there for consistency with normal decompression.
-	if (opt_mode != MODE_LIST)
-		signals_init();
-
 #ifdef ENABLE_SANDBOX
 	// Set a flag that sandboxing is allowed if all these are true:
 	//   - --files or --files0 wasn't used.
@@ -316,10 +304,6 @@ main(int argc, char **argv)
 	coder_free();
 	args_free();
 #endif
-
-	// If we have got a signal, raise it to kill the program instead
-	// of calling tuklib_exit().
-	signals_exit();
 
 	// Make a local copy of exit_status to keep the Windows code
 	// thread safe. At this point it is fine if we miss the user

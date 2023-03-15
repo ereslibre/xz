@@ -16,7 +16,7 @@
 volatile sig_atomic_t user_abort = false;
 
 
-#if !(defined(_WIN32) && !defined(__CYGWIN__))
+#if !defined(_WIN32) && !defined(__CYGWIN__) && !defined(__wasi__)
 
 /// If we were interrupted by a signal, we store the signal number so that
 /// we can raise that signal to kill the program when all cleanups have
@@ -188,37 +188,9 @@ signals_exit(void)
 	return;
 }
 
-#else
-
-// While Windows has some very basic signal handling functions as required
-// by C89, they are not really used, and e.g. SIGINT doesn't work exactly
-// the way it does on POSIX (Windows creates a new thread for the signal
-// handler). Instead, we use SetConsoleCtrlHandler() to catch user
-// pressing C-c, because that seems to be the recommended way to do it.
-//
-// NOTE: This doesn't work under MSYS. Trying with SIGINT doesn't work
-// either even if it appeared to work at first. So test using Windows
-// console window.
-
-static BOOL WINAPI
-signal_handler(DWORD type lzma_attribute((__unused__)))
-{
-	// Since we don't get a signal number which we could raise() at
-	// signals_exit() like on POSIX, just set the exit status to
-	// indicate an error, so that we cannot return with zero exit status.
-	set_exit_status(E_ERROR);
-	user_abort = true;
-	return TRUE;
-}
-
-
 extern void
 signals_init(void)
 {
-	if (!SetConsoleCtrlHandler(&signal_handler, TRUE))
-		message_signal_handler();
-
-	return;
 }
 
 #endif
